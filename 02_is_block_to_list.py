@@ -10,6 +10,7 @@ import array
 import binascii
 import struct
 import redis
+import logging
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 
 from libs.config import *
@@ -18,8 +19,13 @@ def checksynced():
     try:
         synced = access.mnsync('status')['IsSynced']
         return synced
+
     except:
         return False
+
+# logging
+log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs/' + os.path.basename(__file__) + '.log')
+logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s %(message)s')
 
 # rpc 
 serverURL = 'http://' + rpcuser + ':' + rpcpassword + '@' + rpcbindip + ':' + str(rpcport)
@@ -30,20 +36,20 @@ POOL = redis.ConnectionPool(host='localhost', port=6379, db=0)
 r = redis.StrictRedis(connection_pool=POOL)
 
 # check redis
-print('[is_block_to_list] start')
+logging.info('[is_block_to_list] start')
 try:
     r.ping()
 
 except Exception as e:
-    print(e.args[0])
+    logging.info(e.args[0])
     sys.exit()
 
 # check dashd
 while(not checksynced()):
-    print('not synced')
+    logging.info('not synced')
     time.sleep(30)
 
-print('[is_block_to_list] start')
+logging.info('[is_block_to_list] start')
 
 # zmq
 zmqContext = zmq.Context()
@@ -66,19 +72,19 @@ try:
           sequence = str(msgSequence)
 
         if topic == "hashblock":
-            r.lpush(r_LI_BL_RECEIVED, body)            
-            print('block   ----------> %s - %s' % (sequence, body))
+            r.lpush(r_LI_BL_RECEIVED, body)
+            logging.info('block   ----------> %s - %s' % (sequence, body))
 
-#        elif topic == "hashtx":
         elif topic == "hashtxlock":
             r.lpush(r_LI_IS_RECEIVED, body)
-            print('islock  ----------> %s - %s' % (sequence, body))
+            logging.info('islock  ----------> %s - %s' % (sequence, body))
 
 except Exception as e:
-    print(e.args[0])
+    logging.info(e.args[0])
     zmqContext.destroy()
     sys.exit()
 
 except KeyboardInterrupt:
-    print('[is_block_to_list] intterupted by keyboard')
+    logging.info('[is_block_to_list] intterupted by keyboard')
     sys.exit()
+

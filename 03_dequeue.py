@@ -11,6 +11,7 @@ import binascii
 import struct
 import redis
 import nanotime
+import logging
 
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 
@@ -23,35 +24,57 @@ def checksynced():
     try:
         synced = access.mnsync('status')['IsSynced']
         return synced
+
     except:
         return False
 
+def check_block_height():
+    working_height = int(r.get(r_KEY_BLOCK_HEIGHT))
+    length_jobque  = int(r.llen(r_LI_BL_RECEIVED))
+    current_height = int(access.getblockcount())
+
+    logging.info('working_height: %i, length_jobque: %i, current_height: %i' % (working_height, length_jobque, current_height))
+
+    if current_height > ( working_height + length_jobque + 1):
+        logging.info('need to check block from %i to %i' % (working_height + 1, current_height))
+        for i in range(working_height + 1, current_height + 1, 1):
+            try:
+                blockhash = access.getblockhash(i)
+                logging.info('block: %i hash: %s' % (i, blockhash))
+                r.lpush(r_LI_BL_RECEIVED, blockhash)
+
+            except Exception as e:
+                logging.info(e.args[0])
+                pass
+
 def rpc_getblock(block):
-    print('rpc_getblock: ---> %s' % block)
+    logging.info('rpc_getblock: ---> %s' % block)
+    check_block_height()
+
     try:
         blockjson = access.getblock(block, True)
         height = blockjson['height']
         r.set(r_KEY_BLOCK_HEIGHT, height)
-        print('  --> height: %s' % height)
+        logging.info('  --> height: %s' % height)
 
         for tx in blockjson['tx']:
             refundtx = rpc_getrawtransaction(tx)
             if refundtx:
-                print('  refundtx ---> ' + str(refundtx))
+                logging.info('  refundtx ---> ' + str(refundtx))
                 r.zadd(r_SS_QUEUE_TX, height, json.dumps(refundtx, sort_keys=True))
                 r.zadd(r_SS_REFUNDTX, get_nanotime(), refundtx['txid'])
 
         # check r_SS_QUEUE_TX and move to r_LI_REFUND
         mm = json.loads(json.dumps(r.zrangebyscore(r_SS_QUEUE_TX, '-inf', float(height -6))))
         if mm:
-            print('   --> refundtx to job list')
+            logging.info('   --> refundtx to job list')
             for x in mm:
                 r.lpush(r_LI_REFUND, json.dumps(json.loads(x), sort_keys=True))
 
             r.zremrangebyscore(r_SS_QUEUE_TX, '-inf', float(height -6))
 
     except Exception as e:
-        print(e.args)
+        logging.info(e.args[0])
         pass
 
 def rpc_get_input_addr(txid, index):
@@ -60,18 +83,18 @@ def rpc_get_input_addr(txid, index):
         return from_addr
 
     except Exception as e:
-        print(e.args)
+        logging.info(e.args[0])
         return None
 
 def rpc_getrawtransaction(txid):
     try:
         txjson = access.getrawtransaction(txid, 1)
         if len(txjson['vin']) == 1 and 'coinbase' in txjson['vin'][0]:
-            print('   --> coinbase')
+            logging.info('   --> coinbase')
             return None
 
         if r.zscore(r_SS_REFUNDTX, txid) != None:
-            print('  ---> tx is in refund list')
+            logging.info('  ---> tx is in refund list')
             return None
 
         from_addr = rpc_get_input_addr(txjson['vin'][0]['txid'], txjson['vin'][0]['vout'])
@@ -92,8 +115,12 @@ def rpc_getrawtransaction(txid):
         return None
 
     except Exception as e:
-        print(e.args)
+        logging.info(e.args[0])
         return None
+
+# logging
+log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs/' + os.path.basename(__file__) + '.log')
+logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s %(message)s')
 
 # rpc 
 serverURL = 'http://' + rpcuser + ':' + rpcpassword + '@' + rpcbindip + ':' + str(rpcport)
@@ -104,20 +131,20 @@ POOL = redis.ConnectionPool(host='localhost', port=6379, db=0)
 r = redis.StrictRedis(connection_pool=POOL)
 
 # check redis
-print('[dequeue] start')
+logging.info('[dequeue] start')
 try:
     r.ping()
 
 except Exception as e:
-    print(e.args[0])
+    logging.info(e.args[0][0])
     sys.exit()
 
 # check dashd
 while(not checksynced()):
-    print('not synced')
+    logging.info('not synced')
     time.sleep(30)
 
-print('[dequeue] start')
+logging.info('[dequeue] start')
 
 #
 try:
@@ -131,10 +158,10 @@ try:
             redis_val = jobque[1]
 
             if redis_key.decode("utf-8") == r_LI_IS_RECEIVED:
-                print('rpc_rawtx:    ---> %s' % redis_val)
+                logging.info('rpc_rawtx:    ---> %s' % redis_val)
                 refundis = rpc_getrawtransaction(redis_val.decode("utf-8"))
                 if refundis:
-                    print('  refundis ---> ' + str(refundis))
+                    logging.info('  refundis ---> ' + str(refundis))
                     r.lpush(r_LI_REFUND, json.dumps(refundis, sort_keys=True))
                     r.zadd(r_SS_REFUNDTX, get_nanotime(), redis_val.decode("utf-8"))
 
@@ -142,10 +169,10 @@ try:
                 rpc_getblock(redis_val.decode("utf-8"))
 
 except Exception as e:
-    print(e.args)
+    logging.info(e.args[0])
     sys.exit()
 
 except KeyboardInterrupt:
-    print('[dequeue] intterupted by keyboard')
+    logging.info('[dequeue] intterupted by keyboard')
     sys.exit()
 

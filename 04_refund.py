@@ -13,6 +13,7 @@ import redis
 import nanotime
 import pickle
 import subprocess
+import logging
 
 from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
 
@@ -25,6 +26,7 @@ def checksynced():
     try:
         synced = access.mnsync('status')['IsSynced']
         return synced
+
     except:
         return False
 
@@ -39,6 +41,9 @@ def refund(addr, val):
     except Exception as e:
         return None
 
+# logging
+log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs/' + os.path.basename(__file__) + '.log')
+logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s %(message)s')
 
 # rpc 
 serverURL = 'http://' + rpcuser + ':' + rpcpassword + '@' + rpcbindip + ':' + str(rpcport)
@@ -49,20 +54,20 @@ POOL = redis.ConnectionPool(host='localhost', port=6379, db=0)
 r = redis.StrictRedis(connection_pool=POOL)
 
 # check redis
-print('[refund] start')
+logging.info('[refund] start')
 try:
     r.ping()
 
 except Exception as e:
-    print(e.args[0])
+    logging.info(e.args[0])
     sys.exit()
 
 # check dashd
 while(not checksynced()):
-    print('not synced')
+    logging.info('not synced')
     time.sleep(30)
 
-print('[refund] start')
+logging.info('[refund] start')
 
 #
 
@@ -78,7 +83,7 @@ try:
             redis_val = json.loads(jobque[1])
             addr = redis_val['from']
             val  = redis_val['val']
-
+            txid = redis_val['txid']
             outval = val
 
             if val <= 1:
@@ -87,7 +92,7 @@ try:
                 outval = 5
 
             height = r.get(r_KEY_BLOCK_HEIGHT)
-            print('refund %s to %s' % (outval, addr))
+            logging.info('refund %s - %s to %s' % (txid, outval, addr))
             refundresult = refund(addr, outval)
             if refundresult:
                 redis_val['outtxid']   = refundresult
@@ -101,10 +106,11 @@ try:
 
 
 except Exception as e:
-    print(e.args[0])
+    logging.info(e.args[0])
     sys.exit()
 
 except KeyboardInterrupt:
-    print('[refund] intterupted by keyboard')
+    logging.info('[refund] intterupted by keyboard')
     sys.exit()
+
 
