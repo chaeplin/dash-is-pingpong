@@ -34,11 +34,24 @@ except Exception as e:
 #r.delete(r_SS_QUEUE_TX)
 #r.delete(r_LI_REFUND_FAILED)
 #r.delete(r_SS_REFUND_RESULT)
+#r.delete(r_LI_ADDR_REQ)
 #sys.exit()
 #
 #
 
 try:
+
+    print()
+    print('r_S_NEW_ADDRS')
+    pp.pprint(r.smembers(r_S_NEW_ADDRS))
+
+    print()
+    print('r_S_USED_ADDRS')
+    pp.pprint(r.smembers(r_S_USED_ADDRS))
+
+    print()
+    print('r_HA_ADDR_POOL')
+    pp.pprint(r.hgetall(r_HA_ADDR_POOL))
 
     print()
     print('r_LI_IS_RECEIVED')
@@ -71,6 +84,7 @@ try:
     print()
     print('r_SS_REFUND_RESULT')
     pp.pprint(r.zrange(r_SS_REFUND_RESULT, 0, -1, withscores=False))
+
 
 except Exception as e:
     print(e.args[0])

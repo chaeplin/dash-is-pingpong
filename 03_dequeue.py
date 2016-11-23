@@ -1,3 +1,4 @@
+coind@test-01:~/dash-is-pingpong $ cat 03_dequeue.py 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
@@ -45,7 +46,9 @@ def check_block_height():
 
             except Exception as e:
                 logging.info(e.args[0])
-                pass
+                pass 
+
+#dash-cli getblockhash 106905
 
 def rpc_getblock(block):
     logging.info('rpc_getblock: ---> %s' % block)
@@ -86,6 +89,17 @@ def rpc_get_input_addr(txid, index):
         logging.info(e.args[0])
         return None
 
+def check_receive_addr(rx_addr):
+    if rx_addr == RX_ADDR:
+        return True
+
+    else:
+        if not r.sismember(r_S_USED_ADDRS, rx_addr):
+            return False
+
+        else:
+            return True
+
 def rpc_getrawtransaction(txid):
     try:
         txjson = access.getrawtransaction(txid, 1)
@@ -103,7 +117,7 @@ def rpc_getrawtransaction(txid):
             rx_addr  = vo['scriptPubKey']['addresses'][0]
             rx_value = vo['value']
 
-            if rx_addr == RX_ADDR:
+            if check_receive_addr(rx_addr):
                 reveived = {}
                 reveived['txid'] = txid
                 reveived['from'] = from_addr
@@ -175,4 +189,3 @@ except Exception as e:
 except KeyboardInterrupt:
     logging.info('[dequeue] intterupted by keyboard')
     sys.exit()
-

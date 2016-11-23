@@ -7,12 +7,16 @@ max_keys_in_r_S_NEW_ADDRS = 100
 # redis key prefix
 key_prefix = 'DASHISPINGPONG:'
 
+# 01
 # redis key for index of key generation
 r_KEY_ADDR_GEN_INDEX = key_prefix + 'KEY_ADDR_GEN_INDEX'
 
 # SET Unused address pool
 r_S_NEW_ADDRS  = key_prefix + 'S_NEW_ADDRS'
 r_S_USED_ADDRS = key_prefix + 'S_USED_ADDRS'
+
+# new addr request for uid
+r_HA_ADDR_POOL = key_prefix + 'HA_ADDR_POOL'
 
 # redis job list for IS
 # 02 zmq IS and BLOCK
