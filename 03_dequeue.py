@@ -1,4 +1,3 @@
-coind@test-01:~/dash-is-pingpong $ cat 03_dequeue.py 
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
