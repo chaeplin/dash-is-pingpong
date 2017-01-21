@@ -30,13 +30,21 @@ def checksynced():
     except:
         return False
 
+#def refund(addr, val):
+#    try:
+#        cmd = "/usr/local/bin/dash-cli instantsendtoaddress " + addr + " " + str(val)
+#        with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout as f:
+#            result = f.read().splitlines()
+#            return result[0].decode("utf-8")
+#
+#    except Exception as e:
+#        return None
+
 
 def refund(addr, val):
     try:
-        cmd = "/usr/local/bin/dash-cli instantsendtoaddress " + addr + " " + str(val)
-        with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE).stdout as f:
-            result = f.read().splitlines()
-            return result[0].decode("utf-8")
+        r = access.instantsendtoaddress(addr, val, '', '', True)
+        return r
 
     except Exception as e:
         return None
@@ -94,6 +102,7 @@ try:
             height = r.get(r_KEY_BLOCK_HEIGHT)
             logging.info('refund %s - %s to %s' % (txid, outval, addr))
             refundresult = refund(addr, outval)
+            logging.info('refund refundresult : %s' % (refundresult))
             if refundresult:
                 redis_val['outtxid']   = refundresult
                 redis_val['outto']     = addr
@@ -104,6 +113,7 @@ try:
             else:
                 r.lpush(r_LI_REFUND_FAILED, json.dumps(redis_val, sort_keys=True))
 
+            time.sleep(0.2)
 
 except Exception as e:
     logging.info(e.args[0])
@@ -112,5 +122,4 @@ except Exception as e:
 except KeyboardInterrupt:
     logging.info('[refund] intterupted by keyboard')
     sys.exit()
-
 

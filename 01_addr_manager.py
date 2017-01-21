@@ -9,15 +9,22 @@ from pycoin.key import Key
 import redis
 import logging
 
+from bitcoinrpc.authproxy import AuthServiceProxy, JSONRPCException
+
 from libs.config import *
 
 def get_bip32_address_info(key, index):
-    addr = key.subkey(index).address(use_uncompressed=False)
+#    addr = key.subkey(index).address(use_uncompressed=False)
+    addr = access.getnewaddress()
     return { "index": index, "addr": addr }
 
 # logging
 log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'logs/' + os.path.basename(__file__) + '.log')
 logging.basicConfig(filename=log_file, level=logging.INFO, format='%(asctime)s %(message)s')
+
+# rpc 
+serverURL = 'http://' + rpcuser + ':' + rpcpassword + '@' + rpcbindip + ':' + str(rpcport)
+access = AuthServiceProxy(serverURL)
 
 # redis
 POOL = redis.ConnectionPool(host='localhost', port=6379, db=0)
@@ -60,8 +67,8 @@ try:
                     break
         
         else:
-            logging.info('[addr_manager] enough keys, sleep 10 secs')
-            time.sleep(10)
+            logging.info('[addr_manager] enough keys, sleep 60 secs')
+            time.sleep(60)
         
 except Exception as e:
     logging.info(e.args[0])
@@ -70,7 +77,4 @@ except Exception as e:
 except KeyboardInterrupt:
     logging.info('[addr_manager] intterupted by keyboard')
     sys.exit()
-
-
-
 
